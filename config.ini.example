@@ -1,0 +1,37 @@
+# baaaaaaaaackitup/config.ini.example
+
+[Backup]
+# List of directories to backup, one per line
+# Use full paths
+backup_dirs = 
+    /home/username/Documents/important_stuff
+    /home/username/Pictures
+    /home/username/code/projects
+
+# Where to store the backups
+dest_dir = /mnt/backup/mybackups
+
+# Base name for backup files (will be appended with timestamp)
+backup_file_base = my_backup
+
+# File containing the GPG encryption password
+password_file = /home/username/.backup/encryption_key
+
+# Maximum number of backups to keep
+max_backups = 10
+
+# Number of directory levels to preserve in backup
+# Example: if path is /home/user/data/apps/app2 and preserve_levels = 2
+# It will store as apps/app2 in the backup
+preserve_levels = 2
+
+[Restore]
+# Path to the specific backup file to restore
+backup_file = /mnt/backup/mybackups/my_backup.20240106123000.gz.gpg
+
+# Where to extract the restored files
+extract_path = /home/username/restored_backup
+
+[Logging]
+# Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+level = INFO
