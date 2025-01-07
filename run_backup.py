@@ -1,11 +1,25 @@
 #!/usr/bin/env python3
 
 from baaaaaaaaackitup import BackupManager
+from baaaaaaaaackitup.plex_backup import PlexBackupHandler
 import configparser
+from pathlib import Path
 
 # Load config
 config = configparser.ConfigParser()
 config.read('config.ini')
+
+# Set up paths
+dest_dir = Path(config.get('Backup', 'dest_dir'))
+warning_log = dest_dir / 'backup_warnings.log'
+
+# Initialize Plex handler if enabled
+plex_handler = None
+if 'Plex' in config and config.getboolean('Plex', 'enabled', fallback=False):
+    plex_handler = PlexBackupHandler(
+        plex_base_dir=config.get('Plex', 'plex_dir'),
+        warning_log_path=warning_log
+    )
 
 # Create manager
 manager = BackupManager(
@@ -14,7 +28,8 @@ manager = BackupManager(
     backup_file_base=config.get('Backup', 'backup_file_base'),
     password_file=config.get('Backup', 'password_file'),
     max_backups=config.getint('Backup', 'max_backups'),
-    preserve_levels=config.getint('Backup', 'preserve_levels', fallback=2)  # Default to 2 if not specified
+    preserve_levels=config.getint('Backup', 'preserve_levels', fallback=2),
+    plex_handler=plex_handler
 )
 
 # Run backup

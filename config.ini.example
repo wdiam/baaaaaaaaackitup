@@ -25,6 +25,13 @@ max_backups = 10
 # It will store as apps/app2 in the backup
 preserve_levels = 2
 
+[Plex]
+# Enable Plex backup functionality
+enabled = true
+
+# Full path to Plex directory
+plex_dir = /home/username/Documents/_source/_docker/_appdata/plex
+
 [Restore]
 # Path to the specific backup file to restore
 backup_file = /mnt/backup/mybackups/my_backup.20240106123000.gz.gpg

@@ -1,5 +1,3 @@
-# baaaaaaaaackitup/baaaaaaaaackitup/backup_manager.py
-
 import tarfile
 import gzip
 import subprocess
@@ -11,36 +9,37 @@ import logging
 import sys
 import os
 from typing import List, Optional
+from .plex_backup import PlexBackupHandler
 from .exceptions import BackupError, EncryptionError, CompressionError, DirectoryError
 
 class BackupManager:
     """Main class for handling backup operations."""
     
     def __init__(self, 
-                 backup_dirs: List[str],
-                 dest_dir: str,
-                 backup_file_base: str,
-                 password_file: str,
-                 max_backups: int = 10,
-                 preserve_levels: int = 2):
-        """
-        Initialize the backup manager.
-        
-        Args:
-            backup_dirs: List of directories to backup
-            dest_dir: Destination directory for backups
-            backup_file_base: Base name for backup files
-            password_file: Path to GPG password file
-            max_backups: Maximum number of backups to keep
-            preserve_levels: Number of directory levels to preserve in backup
-        """
+                backup_dirs: List[str],
+                dest_dir: str,
+                backup_file_base: str,
+                password_file: str,
+                max_backups: int = 10,
+                preserve_levels: int = 2,
+                plex_handler: Optional['PlexBackupHandler'] = None):
+        """Initialize the backup manager."""
         self.backup_dirs = [Path(d) for d in backup_dirs]
         self.dest_dir = Path(dest_dir)
         self.backup_file_base = backup_file_base
         self.password_file = Path(password_file)
         self.max_backups = max_backups
         self.preserve_levels = preserve_levels
+        
+        # Set up logging first so the warning log path exists
         self.setup_logging()
+        
+        # If plex_handler wasn't provided but we need to create it
+        if plex_handler is None:  # You'll need logic here to determine if Plex is enabled
+            warning_log = self.dest_dir / 'backup_warnings.log'
+            plex_handler = PlexBackupHandler(plex_dir, warning_log)  # plex_dir would come from your config
+        
+        self.plex_handler = plex_handler
 
     def setup_logging(self):
         """Configure logging to output to both file and console"""
@@ -50,18 +49,22 @@ class BackupManager:
         # Clear any existing handlers
         self.logger.handlers.clear()
         
-        # Console handler with custom formatter
+        # Create formatter that includes logger name
+        log_format = logging.Formatter(
+            '[%(levelname)s] %(asctime)s - %(name)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # Console handler
         console_handler = logging.StreamHandler(sys.stdout)
-        console_format = logging.Formatter('[%(levelname)s] %(asctime)s - %(message)s',
-                                         datefmt='%Y-%m-%d %H:%M:%S')
-        console_handler.setFormatter(console_format)
+        console_handler.setFormatter(log_format)
         self.logger.addHandler(console_handler)
         
         # File handler for warnings/errors
         warning_log = self.dest_dir / 'backup_warnings.log'
         file_handler = logging.FileHandler(warning_log)
         file_handler.setLevel(logging.WARNING)
-        file_handler.setFormatter(console_format)
+        file_handler.setFormatter(log_format)
         self.logger.addHandler(file_handler)
 
     def should_exclude(self, path: str) -> bool:
@@ -125,6 +128,22 @@ class BackupManager:
         files_processed = 0
         
         with tarfile.open(tar_path, 'w') as tar:
+            # Handle Plex backup first if configured
+            if self.plex_handler:
+                self.logger.info("Preparing Plex backup...")
+                if self.plex_handler.prepare_backup(staging_dir):
+                    plex_dir = staging_dir / "plex"
+                    if plex_dir.exists():
+                        # Use existing get_preserved_path with plex base directory
+                        preserved_path = self.get_preserved_path(
+                            self.plex_handler.base_dir, 
+                            self.plex_handler.base_dir
+                        )
+                        self.logger.info(f"Adding Plex backup as: {preserved_path}")
+                        tar.add(plex_dir, arcname=str(preserved_path))
+                else:
+                    self.logger.error("Failed to prepare Plex backup!")
+
             for dir_path in self.backup_dirs:
                 if not dir_path.exists():
                     self.logger.warning(f"Directory does not exist: {dir_path}")
