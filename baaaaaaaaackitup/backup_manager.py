@@ -10,6 +10,7 @@ import sys
 import os
 from typing import List, Optional
 from .plex_backup import PlexBackupHandler
+from .sqlite_backup import SQLiteBackupHandler
 from .exceptions import BackupError, EncryptionError, CompressionError, DirectoryError
 
 class BackupManager:
@@ -33,7 +34,10 @@ class BackupManager:
         
         # Set up logging first so the warning log path exists
         self.setup_logging()
-        
+
+        # Initialize SQLite handler
+        self.sqlite_handler = SQLiteBackupHandler(self.dest_dir / 'backup_warnings.log')
+    
         # If plex_handler wasn't provided but we need to create it
         if plex_handler is None:  # You'll need logic here to determine if Plex is enabled
             warning_log = self.dest_dir / 'backup_warnings.log'
@@ -195,8 +199,22 @@ class BackupManager:
                                     # Record tar position before adding file
                                     tar_pos_before = tar_path.stat().st_size if tar_path.exists() else 0
                                     
-                                    # Add file with preserved path
-                                    tar.add(str(file_full_path), arcname=str(preserved_path))
+                                    # Check if it's a SQLite database and handle appropriately
+                                    if self.sqlite_handler.is_valid_sqlite_db(file_full_path):
+                                        # Create temporary path for safely backed up database
+                                        temp_db_path = staging_dir / preserved_path
+                                        temp_db_path.parent.mkdir(parents=True, exist_ok=True)
+                                        
+                                        if self.sqlite_handler.backup_database(file_full_path, temp_db_path):
+                                            # Add the safely backed up database to the tar
+                                            tar.add(temp_db_path, arcname=str(preserved_path))
+                                            self.logger.info(f"Successfully backed up SQLite database: {file_full_path}")
+                                        else:
+                                            self.logger.error(f"Failed to safely backup SQLite database: {file_full_path}")
+                                    else:
+                                        # For non-SQLite files, add directly to tar
+                                        tar.add(str(file_full_path), arcname=str(preserved_path))
+                                    
                                     files_processed += 1
                                     
                                     # Calculate how much this file added to the tar

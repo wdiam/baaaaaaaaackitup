@@ -18,4 +18,5 @@ __all__ = [
     'CompressionError',
     'DirectoryError',
     'RestoreError',
+    'SQLiteBackupHandler'
 ]
