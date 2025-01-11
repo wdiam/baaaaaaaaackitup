@@ -3,11 +3,13 @@
 from baaaaaaaaackitup import BackupManager
 from baaaaaaaaackitup.plex_backup import PlexBackupHandler
 import configparser
+import os
 from pathlib import Path
 
 # Load config
 config = configparser.ConfigParser()
-config.read('config.ini')
+script_dir = Path(__file__).parent
+config.read(script_dir / 'config.ini')
 
 # Set up paths
 dest_dir = Path(config.get('Backup', 'dest_dir'))
